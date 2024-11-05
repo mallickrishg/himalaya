@@ -44,9 +44,9 @@ earthModel = geometry.LDhs(mu,nu);
 rcv = geometry.receiver('megathrust2d.seg',earthModel);
 
 % provide observation points
-nx = 100;
-nz = 51;
-xobs = linspace(-50,401,nx).*1e3;
+nx = 200;
+nz = 201;
+xobs = linspace(-10,301,nx).*1e3;
 zobs = linspace(-60,0,nz).*1e3;
 [xg,zg] = meshgrid(xobs,zobs);
 ox = [xg(:),zg(:)];
@@ -59,6 +59,7 @@ ux = Gdx*slip;
 uz = Gdz*slip;
 
 % plot geometry
+nskip = 19;
 figure(2),clf
 subplot(3,1,[1 2])
 plotpatch2d(rcv), hold on, axis tight equal
@@ -66,16 +67,18 @@ plotpatch2d(rcv), hold on, axis tight equal
 % quiver(rcv.xc(:,1)./1e3,rcv.xc(:,2)./1e3,rcv.dv(:,1).*rcv.Vpl,rcv.dv(:,2).*rcv.Vpl,'b')
 % scatter(xobs(:)./1e3,zobs(:)./1e3,50,uz,'filled')
 pcolor(xobs./1e3,zobs./1e3,reshape(uz,nz,nx)), shading interp
-quiver(xg(:)./1e3,zg(:)./1e3,ux,uz,'k')
+quiver(xg(1:nskip:end)'./1e3,zg(1:nskip:end)'./1e3,ux(1:nskip:end),uz(1:nskip:end),'k')
 axis tight equal
-cb=colorbar;cb.Label.String='u_z';cb.Location='northoutside';
+cb=colorbar;cb.Label.String='v_z';cb.Location='northoutside';
 clim([-1 1]*0.25)
-colormap("turbo(10)")
+colormap("bluewhitered(100)")
+xlabel('x (km)'), ylabel('depth (km)')
 set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
 
 subplot(3,1,3)
 index = zg(:) == 0;
-plot(xg(index)./1e3,uz(index),'o-')
+plot(xg(index)./1e3,uz(index),'o-'), hold on
+plot(xg(index)./1e3,ux(index),'o-')
 axis tight
 xlabel('x (km)'), ylabel('v_z/v_{pl}')
 set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
