@@ -3,6 +3,8 @@
 % Rishav Mallick, JPL, 2024
 
 clear
+addpath functions/
+import('geometry.*')
 
 % provide distance from trench in [km]
 x = linspace(-100,300,1e3)';
@@ -31,3 +33,22 @@ axis tight
 ylim([-1 1]*max(abs(vz)))
 xlabel('x (km)'), ylabel('v_z/v_{pl}')
 set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
+
+%% read mesh file and plot internal displacements
+% Elastic parameters (homogenous medium)
+nu=0.25;% Poisson's ratio
+mu=1;% in MPa
+
+% load megathrust mesh
+earthModel = geometry.LDhs(mu,nu);
+rcv = geometry.receiver('megathrust2d.seg',earthModel);
+
+% plot geometry
+figure(2),clf
+plotpatch2d(rcv), hold on
+quiver(rcv.xc(:,1)./1e3,rcv.xc(:,2)./1e3,rcv.nv(:,1),rcv.nv(:,2),'r')
+quiver(rcv.xc(:,1)./1e3,rcv.xc(:,2)./1e3,rcv.dv(:,1),rcv.dv(:,2),'b')
+axis tight equal
+colorbar
+clim([-1 1])
+colormap("turbo(10)")
