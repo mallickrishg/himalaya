@@ -9,7 +9,7 @@ x = linspace(-100,300,1e3)';
 % provide reference point in [km] (large x value +ve value indicates upper plate)
 x0 = 1e6;
 
-% m - vector containing [Vpl,dip(º),D(km),T(km)]
+% m - vector containing [Vpl,dip(º),locking depth(km),plate thickness(km)]
 m = [1,8,20,50];
 
 % compute velocity field
