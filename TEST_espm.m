@@ -43,12 +43,39 @@ mu=1;% in MPa
 earthModel = geometry.LDhs(mu,nu);
 rcv = geometry.receiver('megathrust2d.seg',earthModel);
 
+% provide observation points
+nx = 100;
+nz = 51;
+xobs = linspace(-50,401,nx).*1e3;
+zobs = linspace(-60,0,nz).*1e3;
+[xg,zg] = meshgrid(xobs,zobs);
+ox = [xg(:),zg(:)];
+% compute displacement kernels
+[Gdx,Gdz,~,~] = geometry.computeFaultDisplacementKernels(rcv,ox);
+
+% provide a slip distrubtion for the mesh
+slip = -rcv.Vpl; %slip(rcv.Vpl == 1) = 0;
+ux = Gdx*slip;
+uz = Gdz*slip;
+
 % plot geometry
 figure(2),clf
-plotpatch2d(rcv), hold on
-quiver(rcv.xc(:,1)./1e3,rcv.xc(:,2)./1e3,rcv.nv(:,1),rcv.nv(:,2),'r')
-quiver(rcv.xc(:,1)./1e3,rcv.xc(:,2)./1e3,rcv.dv(:,1),rcv.dv(:,2),'b')
+subplot(3,1,[1 2])
+plotpatch2d(rcv), hold on, axis tight equal
+% quiver(rcv.xc(:,1)./1e3,rcv.xc(:,2)./1e3,rcv.nv(:,1),rcv.nv(:,2),'r')
+% quiver(rcv.xc(:,1)./1e3,rcv.xc(:,2)./1e3,rcv.dv(:,1).*rcv.Vpl,rcv.dv(:,2).*rcv.Vpl,'b')
+% scatter(xobs(:)./1e3,zobs(:)./1e3,50,uz,'filled')
+pcolor(xobs./1e3,zobs./1e3,reshape(uz,nz,nx)), shading interp
+quiver(xg(:)./1e3,zg(:)./1e3,ux,uz,'k')
 axis tight equal
-colorbar
-clim([-1 1])
+cb=colorbar;cb.Label.String='u_z';cb.Location='northoutside';
+clim([-1 1]*0.25)
 colormap("turbo(10)")
+set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
+
+subplot(3,1,3)
+index = zg(:) == 0;
+plot(xg(index)./1e3,uz(index),'o-')
+axis tight
+xlabel('x (km)'), ylabel('v_z/v_{pl}')
+set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
