@@ -17,7 +17,7 @@ ox = datainput(:,1).*1e3; % convert to [m]
 xpred = linspace(-50,200,500)'.*1e3;% predicted locations
 
 d = datainput(:,2);
-Cd = diag(datainput(:,3).^2)./4;
+Cd = diag(datainput(:,3).^2)./9;
 
 %% construct design matrix and weighting function
 % compute displacement kernels
@@ -45,7 +45,7 @@ ub(~index) = -rcv.Vpl(~index)*Vplate;
 msol = lsqlin(sqrt(inv(Cd))*Gz,sqrt(inv(Cd))*d,[],[],[],[],lb,ub);
 
 % solve using HMC sampling
-Nsamples = 100;
+Nsamples = 200;
 M = Gz'*(Cd\Gz) + alpha2*eye(rcv.N);
 r = (d'*(Cd\Gz))';
 F = [eye(rcv.N);-eye(rcv.N)];
@@ -56,6 +56,8 @@ g = [-lb;ub] + 1e-12;
 
 %% plot results
 figure(1),clf
+set(gcf,'Color','w')
+subplot(2,1,1)
 errorbar(ox./1e3,d,datainput(:,3),'o','LineWidth',1), hold on
 plot(xpred./1e3,Gzpred*msol,'k-','LineWidth',2)
 plot(xpred./1e3,Gzpred*msamples(:,2:end),'-','Color',[1 0 0 0.2])
@@ -64,11 +66,12 @@ ylim([-1,1]*5)
 xlabel('x (km)'), ylabel('v_z [mm/yr]')
 set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
 
-figure(2),clf
-plot(rcv.xc(:,1)./1e3,msol + rcv.Vpl*Vplate,'o','LineWidth',2), hold on
+subplot(2,1,2)
+plot(rcv.xc(:,1)./1e3,msol + rcv.Vpl*Vplate,'k.','LineWidth',2), hold on
 scatter(rcv.xc(:,1)./1e3,msamples + rcv.Vpl*Vplate,20,[1,0,0],'filled'), alpha 0.1
+hold on
 plot(rcv.xc(:,1)./1e3,median(msamples,2) + rcv.Vpl*Vplate,'ro','LineWidth',2,'MarkerFaceColor','r')
 xlabel('x (km)'), ylabel('slip rate [mm/yr]')
-axis tight
+axis tight, box on
 xlim([-50,200])
 set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
