@@ -28,7 +28,7 @@ d = datainput(:,2);
 Cd = diag(datainput(:,3).^2)./4;
 
 % compute Cp kernels - provide dip uncertainty for each patch
-dipdelta = linspace(5,0.5,rcv.N)';
+dipdelta = linspace(2,10,rcv.N)';
 posdelta = 1e3.*linspace(5,1,rcv.N)';
 [~,Kz_dip] = calcGFsensitivity_dip_2d(rcv,faultfilename,ox,zeros(size(ox)),dipdelta);
 [~,Kz_pos] = calcGFsensitivity_position_2d(rcv,faultfilename,ox,zeros(size(ox)),posdelta);
@@ -88,6 +88,13 @@ g = [-lb;ub] + 1e-9;
 % compute posterior distribution
 [msamples, ~] = HMC_exact(F, g, M, r, 0, Nsamples, msol);
 
+% % also compute solution without Cp (just to compare)
+% M = Gz'*(Cd\Gz) + alpha2*eye(rcv.N);
+% r = (d'*(Cd\Gz))';
+% 
+% % compute posterior distribution
+% [msamples_noCp, ~] = HMC_exact(F, g, M, r, 0, Nsamples, msol);
+
 %% plot results
 figure(1),clf
 set(gcf,'Color','w')
@@ -95,6 +102,7 @@ subplot(3,1,1)
 errorbar(ox./1e3,d,datainput(:,3),'o','LineWidth',1,'CapSize',0,'MarkerFaceColor','blue'), hold on
 plot(xpred./1e3,Gzpred*msol,'k-','LineWidth',2)
 plot(xpred./1e3,Gzpred*msamples(:,2:end),'-','Color',[1 0 0 0.1])
+% plot(xpred./1e3,Gzpred*msamples_noCp(:,2:end),'-','Color',[0.5 0.5 0 0.1])
 axis tight
 ylim([-1,1]*5)
 xlabel('x (km)'), ylabel('v_z [mm/yr]')
@@ -113,6 +121,7 @@ plot(rcv.xc(:,1)./1e3,msol + rcv.Vpl*Vplate,'k.','LineWidth',2), hold on
 scatter(rcv.xc(:,1)./1e3,msamples + rcv.Vpl*Vplate,20,[1,0,0],'filled'), alpha 0.1
 hold on
 plot(rcv.xc(:,1)./1e3,median(msamples,2) + rcv.Vpl*Vplate,'ro','LineWidth',2,'MarkerFaceColor','r')
+% plot(rcv.xc(:,1)./1e3,median(msamples_noCp,2) + rcv.Vpl*Vplate,'ks','LineWidth',1,'MarkerFaceColor',[0.5 0.5 0])
 xlabel('x (km)'), ylabel('slip rate [mm/yr]')
 axis tight, box on
 xlim([-50,200])
