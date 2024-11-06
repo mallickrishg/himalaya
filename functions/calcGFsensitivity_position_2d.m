@@ -25,7 +25,7 @@ for i = 1:rcv.N
     posvec = linspace(-xdelta(i),xdelta(i),neval)';
     for count = 1:neval
         rcvi.xc(i,:) = rcv.xc(i,:) + posvec(count).*rcv.nv(i,:);
-        [Gdx,Gdz,~,~] = geometry.computeDisplacementKernelshs(rcvi,[ox oz],rcvi.earthModel.nu,0);
+        [Gdx,Gdz,~,~] = geometry.computeFaultDisplacementKernels(rcvi,[ox oz]);
         bigGx(:,count) = Gdx(:,i);
         bigGz(:,count) = Gdz(:,i);
     end

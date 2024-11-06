@@ -1,6 +1,7 @@
 % Script to read vertical velocities and carry out an unregularized inverse
-% problem accounting for data and model uncertainties following Duputel et
-% al., 2014 & Ragon et al., 2018
+% problem accounting for data and model uncertainties following: 
+% Duputel et al., 2014 & Ragon et al., 2019
+% 
 % AUTHOR:
 % Rishav Mallick, JPL, 2024
 
@@ -20,17 +21,19 @@ rcv = geometry.receiver(faultfilename,earthModel);
 
 % load data [x(km),vz(mm/yr),σz(mm/yr)]
 datainput = readmatrix('data/InSAR_vel_profile.txt');
-ox = datainput(:,1).*1e3; % convert to [m]
+ox = datainput(:,1).*1e3; % locations of data - convert to [m]
 xpred = linspace(-50,200,500)'.*1e3;% predicted locations
 
 d = datainput(:,2);
 Cd = diag(datainput(:,3).^2)./4;
 
-% compute Cp kernels - provide dip unvertainty for each patch
+% compute Cp kernels - provide dip uncertainty for each patch
 dipdelta = linspace(5,0.5,rcv.N)';
-[Kx_dip,Kz_dip] = calcGFsensitivity_dip_2d(rcv,faultfilename,ox,zeros(size(ox)),dipdelta);
-C_psi = diag(dipdelta);
-
+posdelta = 1e3.*linspace(5,1,rcv.N)';
+[~,Kz_dip] = calcGFsensitivity_dip_2d(rcv,faultfilename,ox,zeros(size(ox)),dipdelta);
+[~,Kz_pos] = calcGFsensitivity_position_2d(rcv,faultfilename,ox,zeros(size(ox)),posdelta);
+Cpsi_dip = diag(dipdelta);
+Cpsi_pos = diag(posdelta);
 %% construct design matrix and weighting function
 % compute displacement kernels
 [~,Gz,~,~] = geometry.computeFaultDisplacementKernels(rcv,[ox,zeros(size(ox))]);
@@ -54,15 +57,28 @@ lb(index) = -rcv.Vpl(index)*Vplate;
 lb(~index) = -rcv.Vpl(~index)*Vplate*0.9;
 ub(~index) = -rcv.Vpl(~index)*Vplate;
 % optimization
-msol = lsqlin(sqrt(inv(Cd))*Gz,sqrt(inv(Cd))*d,[],[],[],[],lb,ub);
+msol = lsqlin(sqrtm(inv(Cd))*Gz,sqrtm(inv(Cd))*d,[],[],[],[],lb,ub);
 % compute Cp using a target slip model
-Cp = calcCp_from_K(Kz_dip,C_psi,msol);
+Cp = calcCp_from_K(Kz_dip,Cpsi_dip,msol) + calcCp_from_K(Kz_pos,Cpsi_pos,msol);
 
 % compute a total covariance: Cxi = Cd + Cp
 Cxi = Cd + Cp;
 
+% visualize Cp
+figure(100),clf
+subplot(1,2,1)
+imagesc(ox./1e3,ox./1e3,Cxi), shading flat
+clim([-1 1]), colorbar
+colormap bluewhitered
+title('C_d + C_p')
+
+subplot(1,2,2)
+imagesc(ox./1e3,ox./1e3,Cp), shading flat
+clim([-1 1]), colorbar
+colormap bluewhitered
+title('C_p')
 %% sample from posterior distribution using HMC sampling
-Nsamples = 200;
+Nsamples = 100;
 alpha2 = 1e-4; % this is a relative weight parameter that just needs to be small enough to promote sampling speed, but not affect results
 M = Gz'*(Cxi\Gz) + alpha2*eye(rcv.N);
 r = (d'*(Cxi\Gz))';
@@ -75,16 +91,24 @@ g = [-lb;ub] + 1e-9;
 %% plot results
 figure(1),clf
 set(gcf,'Color','w')
-subplot(2,1,1)
+subplot(3,1,1)
 errorbar(ox./1e3,d,datainput(:,3),'o','LineWidth',1,'CapSize',0,'MarkerFaceColor','blue'), hold on
 plot(xpred./1e3,Gzpred*msol,'k-','LineWidth',2)
-plot(xpred./1e3,Gzpred*msamples(:,2:end),'-','Color',[1 0 0 0.2])
+plot(xpred./1e3,Gzpred*msamples(:,2:end),'-','Color',[1 0 0 0.1])
 axis tight
 ylim([-1,1]*5)
 xlabel('x (km)'), ylabel('v_z [mm/yr]')
 set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
 
-subplot(2,1,2)
+subplot(3,1,2)
+plot(xpred./1e3,Gxpred*msol + Vplate.*(xpred<0),'k-','LineWidth',2), hold on
+plot(xpred./1e3,Gxpred*msamples(:,2:end) + Vplate.*(xpred<0),'-','Color',[1 0 0 0.1])
+axis tight
+ylim([0,1]*Vplate)
+xlabel('x (km)'), ylabel('v_x [mm/yr]')
+set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
+
+subplot(3,1,3)
 plot(rcv.xc(:,1)./1e3,msol + rcv.Vpl*Vplate,'k.','LineWidth',2), hold on
 scatter(rcv.xc(:,1)./1e3,msamples + rcv.Vpl*Vplate,20,[1,0,0],'filled'), alpha 0.1
 hold on
