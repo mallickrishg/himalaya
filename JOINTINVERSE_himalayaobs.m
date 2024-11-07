@@ -15,7 +15,7 @@ mu = 1;% in MPa
 faultfilename = 'megathrust2d.seg';
 
 % load megathrust mesh
-Vplate = 15; % convergence on MHT in mm/yr
+Vplate = 20; % convergence on MHT in mm/yr
 earthModel = geometry.LDhs(mu,nu);
 rcv = geometry.receiver(faultfilename,earthModel);
 
@@ -28,9 +28,10 @@ xpred = linspace(-50,300,500)'.*1e3;% predicted locations
 d2 = Vplate - d2;
 
 % combine datasets and create data covariance matrix
+reweight = 1.0;
 ox = [ox1;ox2];
 d = [d1;d2];
-Cd = blkdiag(Cd1,Cd2);
+Cd = blkdiag(Cd1.*reweight,(2-reweight).*Cd2);
 flag = [flag1;flag2];
 
 %% compute Greens functions and assemble design matrix for inverse problem
