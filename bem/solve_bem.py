@@ -9,7 +9,7 @@ def logisticfunction(x, k=1, x0=0):
 def construct_topographymesh(height, dip, fault_x, nfault):
     # construct topography
     xmesh = np.concatenate(
-        (-np.logspace(3, -0.5, 20), np.linspace(0, 95, 30), np.logspace(2, 3, 50))
+        (-np.logspace(3, -0.5, 20), np.linspace(0, 95, 50), np.logspace(2, 3, 60))
     )
     ymesh = np.zeros_like(xmesh)
     ymesh[xmesh > 0] = height * logisticfunction(xmesh[xmesh > 0], k=0.1, x0=100)
