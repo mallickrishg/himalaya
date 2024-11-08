@@ -26,12 +26,13 @@ xpred = linspace(-50,300,500)'.*1e3;% predicted locations
 
 % convert horizontals into upper-plate reference frame
 d2 = Vplate - d2;
+d2(ox2<0) = d2(ox2<0) - Vplate;
 
 % combine datasets and create data covariance matrix
-reweight = 1.0;
+reweight = 1.5;
 ox = [ox1;ox2];
 d = [d1;d2];
-Cd = blkdiag(Cd1.*reweight,(2-reweight).*Cd2);
+Cd = blkdiag(Cd1.*reweight,Cd2.*(2-reweight));
 flag = [flag1;flag2];
 
 %% compute Greens functions and assemble design matrix for inverse problem
@@ -55,8 +56,8 @@ ub(~index) = -rcv.Vpl(~index)*Vplate;
 msol = lsqlin(sqrtm(inv(Cd))*bigG,sqrtm(inv(Cd))*d,[],[],[],[],lb,ub);
 
 %% sample from posterior distribution using HMC sampling
-Nsamples = 200;
-alpha2 = 1e-4; % this is a relative weight parameter that just needs to be small enough to promote sampling speed, but not affect results
+Nsamples = 100;
+alpha2 = 1e-6; % this is a relative weight parameter that just needs to be small enough to promote sampling speed, but not affect results
 M = bigG'*(Cd\bigG) + alpha2*eye(rcv.N);
 r = (d'*(Cd\bigG))';
 F = [eye(rcv.N);-eye(rcv.N)];
@@ -94,12 +95,12 @@ xlabel('x (km)'), ylabel('v_z [mm/yr]')
 set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
 
 subplot(3,1,2)
-errorbar(ox2./1e3,d2,sqrt(diag(Cd2)),'o','LineWidth',1,'CapSize',0,'MarkerFaceColor','blue'), hold on
-plot(xpred./1e3,Gxpred*msol + Vplate.*(xpred<0),'k-','LineWidth',2)
-plot(xpred./1e3,Gxpred*msamples(:,2:end) + Vplate.*(xpred<0),'-','Color',[1 0 0 0.1])
+errorbar(ox2./1e3,(d2 + 0.*Vplate.*(ox2<0))./Vplate,sqrt(diag(Cd2))./Vplate,'o','LineWidth',1,'CapSize',0,'MarkerFaceColor','blue'), hold on
+plot(xpred./1e3,(Gxpred*msol + 0.*Vplate.*(xpred<0))./Vplate,'k-','LineWidth',2)
+plot(xpred./1e3,(Gxpred*msamples(:,2:end) + 0.*Vplate.*(xpred<0))./Vplate,'-','Color',[1 0 0 0.1])
 axis tight
-ylim([0,1.2]*Vplate)
-xlabel('x (km)'), ylabel('v_x [mm/yr]')
+ylim([-0.2,1.2])
+xlabel('x (km)'), ylabel('v_x/v_{plate}')
 set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
 
 subplot(3,1,3)
