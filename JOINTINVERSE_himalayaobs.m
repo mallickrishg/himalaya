@@ -15,24 +15,24 @@ mu = 1;% in MPa
 faultfilename = 'megathrust2d.seg';
 
 % load megathrust mesh
-Vplate = 20; % convergence on MHT in mm/yr
+Vplate = 18; % convergence on MHT in mm/yr
 earthModel = geometry.LDhs(mu,nu);
 rcv = geometry.receiver(faultfilename,earthModel);
 
 % load data [x(km),vz(mm/yr),σz(mm/yr)]
 xpred = linspace(-50,300,500)'.*1e3;% predicted locations
 [ox1,d1,Cd1,flag1] = create_inputdataset('data/InSAR_vel_profile.txt','vertical');
-[ox2,d2,Cd2,flag2] = create_inputdataset('data/fpp_panda.dat','horizontal');
+[ox2,d2,Cd2,flag2] = create_inputdataset('data/fpp_panda_narrow.dat','horizontal');
 
 % convert horizontals into upper-plate reference frame
 d2 = Vplate - d2;
 d2(ox2<0) = d2(ox2<0) - Vplate;
 
 % combine datasets and create data covariance matrix
-reweight = 1.5;
+reweight = 1.0;
 ox = [ox1;ox2];
 d = [d1;d2];
-Cd = blkdiag(Cd1.*reweight,Cd2.*(2-reweight));
+Cd = blkdiag(Cd1.*length(d)/length(d1),Cd2.*length(d)/length(d2))./9;
 flag = [flag1;flag2];
 
 %% compute Greens functions and assemble design matrix for inverse problem
@@ -100,11 +100,12 @@ plot(xpred./1e3,(Gxpred*msol + 0.*Vplate.*(xpred<0))./Vplate,'k-','LineWidth',2)
 plot(xpred./1e3,(Gxpred*msamples(:,2:end) + 0.*Vplate.*(xpred<0))./Vplate,'-','Color',[1 0 0 0.1])
 axis tight
 ylim([-0.2,1.2])
+xlim([-50,300])
 xlabel('x (km)'), ylabel('v_x/v_{plate}')
 set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
 
 subplot(3,1,3)
-plot(rcv.xc(:,1)./1e3,msol + rcv.Vpl*Vplate,'k.','LineWidth',2), hold on
+plot(rcv.xc(:,1)./1e3,msol + rcv.Vpl*Vplate,'ks','LineWidth',2), hold on
 scatter(rcv.xc(:,1)./1e3,msamples + rcv.Vpl*Vplate,20,[1,0,0],'filled'), alpha 0.1
 hold on
 plot(rcv.xc(:,1)./1e3,median(msamples,2) + rcv.Vpl*Vplate,'ro','LineWidth',2,'MarkerFaceColor','r')
