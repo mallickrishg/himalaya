@@ -30,7 +30,7 @@ index = rcv.Vpl>0;
 % compute distance along the megathrust in [km]
 dipdist = sqrt(rcv.xc(:,1).^2 + rcv.xc(:,2).^2)./1e3;
 
-% locked patches on the fault
+% locked patches on the fault & the hinge too
 Ilockedpatch = (dipdist>m(1) & dipdist<m(2) & index);
 
 % enforce plate rate below some depth
@@ -41,7 +41,10 @@ IimposedBC = Ilockedpatch|Icreep;
 
 % compute traction and displacement kernels
 [K,~,~,~] = geometry.computeFaultTractionKernels(rcv,rcv);
-sig0 = -K*(rcv.Vpl*Vplate);
+Vplvector = rcv.Vpl.*Vplate;
+Vplvector(~index) = 0; % we don't want to account for stress from the hinge
+% long-term stressing rate
+sig0 = -K*(Vplvector);
 [Gx,Gz,~,~] = geometry.computeFaultDisplacementKernels(rcv,[ox,zeros(size(ox))]);
 
 % construct appropriate displacement kernel for all stations
@@ -50,7 +53,7 @@ bigG = [Gz(stationindex,:);Gx(~stationindex,:)];
 
 subK = K(~IimposedBC,~IimposedBC);
 %alter the stressing rate by subtracting the stresses that develop from previously locking 
-substressrate = sig0(~IimposedBC) - K(~IimposedBC,Icreep)*(rcv.Vpl(Icreep)*Vplate);
+substressrate = sig0(~IimposedBC) - K(~IimposedBC,Icreep)*(Vplvector(Icreep));
 
 subsliprate=subK\substressrate;
 sliprate=zeros(rcv.N,1);
@@ -59,6 +62,7 @@ sliprate=zeros(rcv.N,1);
 % plate-rate slip
 sliprate(~IimposedBC)=subsliprate;
 sliprate(Icreep)=Vplate.*rcv.Vpl(Icreep);
+sliprate(~index) = 0; % the hinge is not creeping but we don't want to deal with stresses from the hinge either
 
 % return predicted velocity field 
 dpred = bigG*(sliprate-rcv.Vpl.*Vplate);
