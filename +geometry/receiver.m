@@ -32,19 +32,32 @@ classdef receiver < geometry.fpatch
             %   src = receiver('filename')
             % default friction properties are velocity strengthening:           
             
-            if ~iscell(filename)
-                filename={filename};
-            end
-            
             obj.earthModel=earthModel;
             
-            fm=[];
-            for k=1:length(filename)
-                assert(2==exist(filename{k},'file'),['patch:file not found ' filename{k}]);
-                
-                [lfm]=obj.seg2flt(filename{k});                
-                fm=[fm;lfm];
-                
+            if ischar(filename)
+                if ~iscell(filename)
+                    filename={filename};
+                end                
+
+                fm=[];
+                for k=1:length(filename)
+                    assert(2==exist(filename{k},'file'),['patch:file not found ' filename{k}]);
+
+                    [lfm]=obj.seg2flt(filename{k});
+                    fm=[fm;lfm];
+
+                end
+            else % if filename is actually the parameters directly
+                parameters = filename;
+                [Vpl,x1,x3,width,d,wo] = deal(parameters(:,1),parameters(:,2),parameters(:,3),parameters(:,4),parameters(:,5),parameters(:,6));
+                alphaw = 1;
+                fm = [];
+                for k=1:length(parameters(:,1))
+                    % list of patches for current segment
+                    flt=geometry.flt2flt([x1(k);x3(k)],width(k),d(k),wo(k),alphaw);
+                    % list of patches for all segments
+                    fm=[fm;[flt,Vpl(k).*ones(size(flt,1),1),zeros(size(flt,1),1),zeros(size(flt,1),1)]];
+                end
             end
             
             % set degrees of freedom by default
@@ -86,7 +99,8 @@ classdef receiver < geometry.fpatch
                 obj.x(:,2)-obj.W/2.*obj.dv(:,2)];
         end % constructor
         
-                        
+        
+                            
        
         
     end % methods
