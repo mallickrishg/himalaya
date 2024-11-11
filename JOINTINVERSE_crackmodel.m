@@ -50,15 +50,15 @@ parameters.mu = mu;
 parameters.nu = nu;
 
 % provide model initialization: ideally this is an optimization solution 
-minit = [40,100,10,20,10,50];
+minit = [10,100,10,20,10,100];
 
 % non-linear sampling with slice sampler
 dpred = @(m) func_velfromlockedpatch(m,parameters);
 residuals=@(dpred,d,W) sum(diag(W))/(sum(diag(W))^2 - sum(diag(W).^2))*(dpred-d)'*W*(dpred-d);
 % setup priors (bounds)
 
-LB =  [0,50,5,15,8,10];
-UB =  [50,200,100,25,15,150];
+LB =  [0,50,5,15,8,90];
+UB =  [50,200,100,25,15,110];
 mnames = {'\zeta_{up-dip}';'\zeta_{down-dip}';'W';'V_{pl}';'\delta';'T_{plate}'};
 
 % compute optimization solution
@@ -71,7 +71,7 @@ likelihoodfun = @(m) -0.5.*(residuals(dpred((UB-LB)./(1+exp(-m)) + LB),d,W)) - s
 tic
 disp('Begin Slicesampling')
 
-zetasamples = slicesample(mopt,Nsamples,'logpdf',likelihoodfun,'thin',2,'burnin',Nsamples/10,'width',[10,10,10,3,1,5]);
+zetasamples = slicesample(mopt,Nsamples,'logpdf',likelihoodfun,'thin',2,'burnin',Nsamples/10,'width',[3,3,3,3,2,3]);
 
 mposterior = zeros(size(zetasamples));
 for i = 1:length(LB)
@@ -109,7 +109,7 @@ figure(2),clf
 set(gcf,'Color','w')
 subplot(2,1,1)
 errorbar(ox1./1e3,d1,sqrt(diag(Cd1)),'o','LineWidth',1,'CapSize',0,'MarkerFaceColor','blue'), hold on
-plot(xpred./1e3,vzpred,'-','Color',[1 0 0 0.1])
+plot(xpred./1e3,vzpred,'-','Color',[1 0 0 0.2])
 plot(xpred./1e3,vzopt,'r-','Linewidth',2)
 axis tight
 % ylim([-1,1]*5)
@@ -135,3 +135,33 @@ set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
 % axis tight, box on
 % xlim([-50,300])
 % set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
+
+%% testing
+minit = [20,30,50,20,10,100];
+options = optimoptions('lsqnonlin','Algorithm','interior-point',...
+    'TypicalX',[5,10,5,0.5,1,5],'StepTolerance',2);
+% compute optimization solution
+mopt = lsqnonlin(@(m) sqrt(W)*(dpred(m) - d),minit,LB,UB);
+disp(mopt')
+% compute predictions from optimization
+params.flag = zeros(length(xpred),1);
+vxopt = func_velfromlockedpatch(mopt,params);
+params.flag = ones(length(xpred),1);
+vzopt = func_velfromlockedpatch(mopt,params);
+
+figure(2),clf
+set(gcf,'Color','w')
+subplot(2,1,1)
+errorbar(ox1./1e3,d1,sqrt(diag(Cd1)),'o','LineWidth',1,'CapSize',0,'MarkerFaceColor','blue'), hold on
+plot(xpred./1e3,vzopt,'r-','Linewidth',2)
+axis tight
+xlabel('x (km)'), ylabel('v_z [mm/yr]')
+set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
+
+subplot(2,1,2)
+errorbar(ox2./1e3,d2,sqrt(diag(Cd2)),'o','LineWidth',1,'CapSize',0,'MarkerFaceColor','blue'), hold on
+plot(xpred./1e3,vxopt,'r-','Linewidth',2)
+axis tight
+xlim([-50,300])
+xlabel('x (km)'), ylabel('v_x/v_{plate}')
+set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
