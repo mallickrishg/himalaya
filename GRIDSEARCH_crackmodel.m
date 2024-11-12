@@ -16,7 +16,7 @@ mu = 30e3;% in MPa
 % load data [x(km),vz(mm/yr),σz(mm/yr)]
 xpred = linspace(-50,300,500)'.*1e3;% predicted locations
 [ox1,d1,Cd1,flag1] = create_inputdataset('data/InSAR_vel_profile.txt','vertical');
-[ox2,d2,Cd2,flag2] = create_inputdataset('data/fpp_panda.dat','horizontal');
+[ox2,d2,Cd2,flag2] = create_inputdataset('data/fpp_ajish.dat','horizontal');
 
 % combine datasets and create data covariance matrix
 ox = [ox1;ox2];
@@ -73,10 +73,10 @@ vzopt = func_velfromlockedpatch2(mopt,params);
 %% execute gridsearch
 % grid up domain
 nglock = 20;
-ngw = 20;
+ngw = 15;
 ngvpl = 20;
-x1vec = linspace(80,160,nglock);
-x2vec = linspace(0,100,ngw);
+x1vec = linspace(80,150,nglock);
+x2vec = linspace(0,150,ngw);
 x3vec = linspace(15,25,ngvpl);
 % N-D grid
 [x1g,x2g,x3g] = meshgrid(x1vec,x2vec,x3vec);
@@ -128,27 +128,98 @@ for i = 1:3
         elseif i>j
             subplot(3,3,(3*(i-1) + j))
             if (3*(i-1) + j)==4
-                pcolor(x1vec,x2vec,squeeze(max(dummy,[],3))), shading flat
+                pcolor(x1vec,x2vec,squeeze(max(dummy,[],3))), shading interp
                 axis tight, box on, grid on
                 alpha 0.6
                 ylabel('W [km]')
                 set(gca,'FontSize',15,'Color','none','XTick',[])
             elseif (3*(i-1) + j)==7
-                pcolor(x1vec,x3vec,squeeze(max(dummy,[],1))'), shading flat
+                pcolor(x1vec,x3vec,squeeze(max(dummy,[],1))'), shading interp
                 axis tight, box on, grid on
                 alpha 0.6
                 xlabel('\zeta_{lock} [km]')
                 ylabel('V_{pl} [mm/yr]')
                 set(gca,'FontSize',15,'Color','none')
             elseif (3*(i-1) + j)==8
-                pcolor(x2vec,x3vec,squeeze(max(dummy,[],2))'), shading flat
+                pcolor(x2vec,x3vec,squeeze(max(dummy,[],2))'), shading interp
                 axis tight, box on, grid on
                 alpha 0.6
                 xlabel('W [km]')
                 set(gca,'FontSize',15,'Color','none','YTick',[])
             end
-        end
-        
-    end
-    
+        end        
+    end    
 end
+colormap(turbo(10))
+
+%% plot results
+
+in = exp(-(misfit-min(misfit(:))))>=0.95;
+x1plot = x1g(in);
+x2plot = x2g(in);
+x3plot = x3g(in);
+vxpred = zeros(length(xpred),length(x1plot));
+vzpred = zeros(length(xpred),length(x1plot));
+
+parfor i = 1:length(x1plot)
+    params = [];
+    params.ox = xpred;
+    params.flag = zeros(length(xpred),1);
+    params.mu = mu;
+    params.nu = nu;
+    vxpred(:,i) = func_velfromlockedpatch2([x1plot(i),x2plot(i),x3plot(i),mopt(4:5)],params);
+    params.flag = ones(length(xpred),1);
+    vzpred(:,i) = func_velfromlockedpatch2([x1plot(i),x2plot(i),x3plot(i),mopt(4:5)],params);
+end
+
+% plot data predictions and fault slip rate
+figure(2),clf
+set(gcf,'Color','w')
+subplot(2,1,1)
+errorbar(ox1./1e3,d1,sqrt(diag(Cd1)),'o','LineWidth',1,'CapSize',0,'MarkerFaceColor','blue'), hold on
+plot(xpred./1e3,vzpred,'-','Color',[1 0 0 0.2])
+plot(xpred./1e3,vzopt,'k-','Linewidth',2)
+axis tight
+xlabel('x (km)'), ylabel('v_z [mm/yr]')
+set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
+
+subplot(2,1,2)
+errorbar(ox2./1e3,d2,sqrt(diag(Cd2)),'o','LineWidth',1,'CapSize',0,'MarkerFaceColor','blue'), hold on
+plot(xpred./1e3,vxpred,'-','Color',[1 0 0 0.2])
+plot(xpred./1e3,vxopt,'k-','Linewidth',2)
+axis tight
+xlim([-50,300])
+xlabel('x (km)'), ylabel('v_x/v_{plate}')
+set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
+
+return
+
+%% plot a sample model
+params = [];
+params.ox = xpred;
+params.flag = zeros(length(xpred),1);
+params.mu = mu;
+params.nu = nu;
+i = 51;
+vxpred = func_velfromlockedpatch2([x1plot(i),x2plot(i),x3plot(i),mopt(4:5)],params);
+params.flag = ones(length(xpred),1);
+vzpred = func_velfromlockedpatch2([x1plot(i),x2plot(i),x3plot(i),mopt(4:5)],params);
+
+figure(100),clf
+set(gcf,'Color','w')
+subplot(2,1,1)
+errorbar(ox1./1e3,d1,sqrt(diag(Cd1)),'o','LineWidth',1,'CapSize',0,'MarkerFaceColor','blue'), hold on
+plot(xpred./1e3,vzpred,'r-')
+plot(xpred./1e3,vzopt,'k-','Linewidth',2)
+axis tight
+xlabel('x (km)'), ylabel('v_z [mm/yr]')
+set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
+
+subplot(2,1,2)
+errorbar(ox2./1e3,d2,sqrt(diag(Cd2)),'o','LineWidth',1,'CapSize',0,'MarkerFaceColor','blue'), hold on
+plot(xpred./1e3,vxpred,'r-')
+plot(xpred./1e3,vxopt,'k-','Linewidth',2)
+axis tight
+xlim([-50,300])
+xlabel('x (km)'), ylabel('v_x/v_{plate}')
+set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
