@@ -143,13 +143,4 @@ xlim([-50,300])
 xlabel('x (km)'), ylabel('v_x/v_{plate}')
 set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
 
-% subplot(3,1,3)
-% plot(rcv.xc(:,1)./1e3,msol + rcv.Vpl*Vplate,'ks','LineWidth',2), hold on
-% scatter(rcv.xc(:,1)./1e3,msamples + rcv.Vpl*Vplate,20,[1,0,0],'filled'), alpha 0.1
-% hold on
-% plot(rcv.xc(:,1)./1e3,median(msamples,2) + rcv.Vpl*Vplate,'ro','LineWidth',2,'MarkerFaceColor','r')
-% xlabel('x (km)'), ylabel('slip rate [mm/yr]')
-% axis tight, box on
-% xlim([-50,300])
-% set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
 
