@@ -46,7 +46,9 @@ minit = [100,10,16,10,100];
 
 % non-linear sampling with slice sampler
 dpred = @(m) func_velfromlockedpatch2(m,parameters);
-residuals=@(dpred,d,W) sum(diag(W))/(sum(diag(W))^2 - sum(diag(W).^2))*(dpred-d)'*W*(dpred-d);
+% residuals=@(dpred,d,W) sum(diag(W))/(sum(diag(W))^2 - sum(diag(W).^2))*(dpred-d)'*W*(dpred-d);
+residuals=@(dpred,d,W) (dpred-d)'*W*(dpred-d);
+
 % setup priors (bounds)
 
 LB =  [50,5,15,8,20];
@@ -73,10 +75,10 @@ vzopt = func_velfromlockedpatch2(mopt,params);
 %% execute gridsearch
 % grid up domain
 nglock = 20;
-ngw = 15;
+ngw = 25;
 ngvpl = 20;
-x1vec = linspace(80,150,nglock);
-x2vec = linspace(0,150,ngw);
+x1vec = linspace(90,120,nglock);
+x2vec = linspace(30,100,ngw);
 x3vec = linspace(15,25,ngvpl);
 % N-D grid
 [x1g,x2g,x3g] = meshgrid(x1vec,x2vec,x3vec);
@@ -102,6 +104,8 @@ toc
 %% plot relative probability of models as marginal PDFs
 
 figure(1),clf
+set(gcf,'Color','w')
+% dummy = exp(-(misfit-min(misfit(:))).*sum(diag(W)));
 dummy = exp(-(misfit-min(misfit(:))));
 
 for i = 1:3    
@@ -110,7 +114,7 @@ for i = 1:3
             subplot(3,3,(3*(i-1) + j))
             if i==1
                 bar(x1vec,max(squeeze(max(dummy,[],1)),[],2),'FaceColor',rgb('skyblue'),'EdgeColor',rgb('skyblue'))
-                axis tight, grid on
+                axis tight, grid on                
                 set(gca,'FontSize',15,'Color','none','XTick',[])
             elseif (i==2)
                 bar(x2vec,max(squeeze(max(dummy,[],2)),[],2),'FaceColor',rgb('skyblue'),'EdgeColor',rgb('skyblue'))
@@ -124,7 +128,9 @@ for i = 1:3
             else
                 error('check number of variables to plot')
             end
-            
+            hold on,
+            plot(mopt(i).*[1 1],get(gca,'YLim'),'k-','LineWidth',2)
+
         elseif i>j
             subplot(3,3,(3*(i-1) + j))
             if (3*(i-1) + j)==4
@@ -150,11 +156,11 @@ for i = 1:3
         end        
     end    
 end
-colormap(turbo(10))
+colormap(turbo(20))
 
 %% plot results
 
-in = exp(-(misfit-min(misfit(:))))>=0.95;
+in = exp(-(misfit-min(misfit(:))))>=0.1;
 x1plot = x1g(in);
 x2plot = x2g(in);
 x3plot = x3g(in);
@@ -189,37 +195,5 @@ plot(xpred./1e3,vxpred,'-','Color',[1 0 0 0.2])
 plot(xpred./1e3,vxopt,'k-','Linewidth',2)
 axis tight
 xlim([-50,300])
-xlabel('x (km)'), ylabel('v_x/v_{plate}')
-set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
-
-return
-
-%% plot a sample model
-params = [];
-params.ox = xpred;
-params.flag = zeros(length(xpred),1);
-params.mu = mu;
-params.nu = nu;
-i = 51;
-vxpred = func_velfromlockedpatch2([x1plot(i),x2plot(i),x3plot(i),mopt(4:5)],params);
-params.flag = ones(length(xpred),1);
-vzpred = func_velfromlockedpatch2([x1plot(i),x2plot(i),x3plot(i),mopt(4:5)],params);
-
-figure(100),clf
-set(gcf,'Color','w')
-subplot(2,1,1)
-errorbar(ox1./1e3,d1,sqrt(diag(Cd1)),'o','LineWidth',1,'CapSize',0,'MarkerFaceColor','blue'), hold on
-plot(xpred./1e3,vzpred,'r-')
-plot(xpred./1e3,vzopt,'k-','Linewidth',2)
-axis tight
-xlabel('x (km)'), ylabel('v_z [mm/yr]')
-set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
-
-subplot(2,1,2)
-errorbar(ox2./1e3,d2,sqrt(diag(Cd2)),'o','LineWidth',1,'CapSize',0,'MarkerFaceColor','blue'), hold on
-plot(xpred./1e3,vxpred,'r-')
-plot(xpred./1e3,vxopt,'k-','Linewidth',2)
-axis tight
-xlim([-50,300])
-xlabel('x (km)'), ylabel('v_x/v_{plate}')
+xlabel('x (km)'), ylabel('v_x [mm/yr]')
 set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
