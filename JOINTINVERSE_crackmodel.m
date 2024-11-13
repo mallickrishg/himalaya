@@ -98,7 +98,7 @@ set(gcf,'Color','w')
 plot_joint_post_pdf(mposterior,mnames);
 
 % plot predictions
-Npred = 101;
+Npred = 301;
 sampleid = randperm(Nchains*Nsamples,Npred);
 vxpred = zeros(length(xpred),Npred);
 vzpred = zeros(length(xpred),Npred);
@@ -123,26 +123,38 @@ vxopt = func_velfromlockedpatch2(mopt,params);
 params.flag = ones(length(xpred),1);
 vzopt = func_velfromlockedpatch2(mopt,params);
 
-%% plot data predictions and fault slip rate
+nmesh = 1000;
+xmesh = zeros(nmesh,Npred);
+slipratepred = zeros(nmesh,Npred);
+parfor i = 1:length(sampleid)
+    [xm,vm] = func_slipratefromlockedpatch(mposterior(sampleid(i),:),nmesh);
+    xmesh(:,i) = xm;
+    slipratepred(:,i) = vm;
+end
+%% plot data predictions
 figure(2),clf
 set(gcf,'Color','w')
-subplot(2,1,1)
+subplot(3,1,1)
 errorbar(ox1./1e3,d1,sqrt(diag(Cd1)),'o','LineWidth',1,'CapSize',0,'MarkerFaceColor','blue'), hold on
 plot(xpred./1e3,vzpred,'-','Color',[1 0 0 0.2])
 plot(xpred./1e3,vzopt,'k-','Linewidth',2)
 axis tight
-% ylim([-1,1]*5)
 xlabel('x (km)'), ylabel('v_z [mm/yr]')
 set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
 
-subplot(2,1,2)
+subplot(3,1,2)
 errorbar(ox2./1e3,d2,sqrt(diag(Cd2)),'o','LineWidth',1,'CapSize',0,'MarkerFaceColor','blue'), hold on
 plot(xpred./1e3,vxpred,'-','Color',[1 0 0 0.2])
 plot(xpred./1e3,vxopt,'k-','Linewidth',2)
 axis tight
-% ylim([-0.2,1.2])
 xlim([-50,300])
-xlabel('x (km)'), ylabel('v_x/v_{plate}')
+xlabel('x (km)'), ylabel('v_x [mm/yr]')
 set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
 
-
+% plot fault slip rate
+subplot(3,1,3)
+plot(xmesh./1e3,slipratepred,'-','Color',[1 0 0 0.2])
+xlabel('x (km)'), ylabel('sliprate [mm/yr]')
+xlim([-50,300])
+ylim([0 25])
+set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
