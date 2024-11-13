@@ -36,7 +36,7 @@ W = inv(Cd);
 % m(6) - plate thickness in [km]
 
 rng(42)
-Nsamples = 5e2;
+Nsamples = 1e2;
 Nchains = 12;
 
 parameters = [];
@@ -131,12 +131,19 @@ parfor i = 1:length(sampleid)
     xmesh(:,i) = xm;
     slipratepred(:,i) = vm;
 end
-%% plot data predictions
+
+% compute potency accumulation rate (this is per unit length along-strike)
+potencyrate = zeros(Npred,1);
+for i = 1:Npred
+    potencyrate(i,1) = -trapz(xmesh(:,i)./cosd(mposterior(sampleid(i),4)),...
+        slipratepred(:,i)-mposterior(sampleid(i),3)');
+end
+%% plot data predictions and slip rate on fault
 figure(2),clf
 set(gcf,'Color','w')
 subplot(3,1,1)
 errorbar(ox1./1e3,d1,sqrt(diag(Cd1)),'o','LineWidth',1,'CapSize',0,'MarkerFaceColor','blue'), hold on
-plot(xpred./1e3,vzpred,'-','Color',[1 0 0 0.2])
+plot(xpred./1e3,vzpred,'-','Color',[1 0 0 0.05])
 plot(xpred./1e3,vzopt,'k-','Linewidth',2)
 axis tight
 xlabel('x (km)'), ylabel('v_z [mm/yr]')
@@ -144,7 +151,7 @@ set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
 
 subplot(3,1,2)
 errorbar(ox2./1e3,d2,sqrt(diag(Cd2)),'o','LineWidth',1,'CapSize',0,'MarkerFaceColor','blue'), hold on
-plot(xpred./1e3,vxpred,'-','Color',[1 0 0 0.2])
+plot(xpred./1e3,vxpred,'-','Color',[1 0 0 0.05])
 plot(xpred./1e3,vxopt,'k-','Linewidth',2)
 axis tight
 xlim([-50,300])
@@ -153,8 +160,17 @@ set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
 
 % plot fault slip rate
 subplot(3,1,3)
-plot(xmesh./1e3,slipratepred,'-','Color',[1 0 0 0.2])
+plot(xmesh./1e3,slipratepred,'-','Color',[1 0 0 0.1]), hold on
+[xm,vm] = func_slipratefromlockedpatch(mopt,nmesh);
+plot(xm./1e3,vm,'k-','Linewidth',2)
 xlabel('x (km)'), ylabel('sliprate [mm/yr]')
 xlim([-50,300])
 ylim([0 25])
 set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
+
+% potency accumulation rate
+figure(3),clf
+histogram(potencyrate,'Normalization','probability')
+axis tight
+xlabel('potency rate [mm/yr-m]')
+set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both','XScale','log')
