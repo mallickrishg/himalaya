@@ -15,7 +15,7 @@ mu = 30e3;% in MPa
 
 % load data [x(km),vz(mm/yr),σz(mm/yr)]
 xpred = linspace(-50,300,500)'.*1e3;% predicted locations
-[ox1,d1,Cd1,flag1] = create_inputdataset('data/InSAR_vel_profile.txt','vertical');
+[ox1,d1,Cd1,flag1] = create_inputdataset('data/InSAR_vel_profile_2k.txt','vertical');
 [ox2,d2,Cd2,flag2] = create_inputdataset('data/fpp_panda.dat','horizontal');
 
 % combine datasets and create data covariance matrix
@@ -50,12 +50,13 @@ minit = [100,10,16,10,100];
 
 % non-linear sampling with slice sampler
 dpred = @(m) func_velfromlockedpatch2(m,parameters);
-residuals=@(dpred,d,W) sum(diag(W))/(sum(diag(W))^2 - sum(diag(W).^2))*(dpred-d)'*W*(dpred-d);
-% setup priors (bounds)
+% residuals=@(dpred,d,W) sum(diag(W))/(sum(diag(W))^2 - sum(diag(W).^2))*(dpred-d)'*W*(dpred-d);
+residuals=@(dpred,d,W) (dpred-d)'*W*(dpred-d);
 
+% setup priors (bounds)
 LB =  [50,5,15,8,20];
 UB =  [200,100,25,15,200];
-mnames = {'\zeta_{down-dip}';'W';'V_{pl}';'\delta';'T_{plate}'};
+mnames = {'\zeta_{lock} [km]';'W [km]';'V_{pl} [mm/yr]';'\delta º';'T_{plate} [km]'};
 
 % compute optimization solution
 options = optimoptions('lsqnonlin','Algorithm','interior-point',...
@@ -93,6 +94,7 @@ disp('End sampling')
 
 %% make posterior distribution figure
 figure(1),clf
+set(gcf,'Color','w')
 plot_joint_post_pdf(mposterior,mnames);
 
 % plot predictions
