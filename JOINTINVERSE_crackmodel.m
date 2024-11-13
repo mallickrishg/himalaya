@@ -21,7 +21,8 @@ xpred = linspace(-50,300,500)'.*1e3;% predicted locations
 % combine datasets and create data covariance matrix
 ox = [ox1;ox2];
 d = [d1;d2];
-Cd = blkdiag(Cd1.*length(d)/length(d1),Cd2.*length(d)/length(d2));
+% rescale covariance matrices by number of points
+Cd = blkdiag(Cd1.*length(d2)/length(d),Cd2.*length(d1)/length(d));
 flag = [flag1;flag2];
 
 % weighting function is inverse of data covariance matrix
@@ -54,7 +55,7 @@ dpred = @(m) func_velfromlockedpatch2(m,parameters);
 residuals=@(dpred,d,W) (dpred-d)'*W*(dpred-d);
 
 % setup priors (bounds)
-LB =  [50,5,15,8,20];
+LB =  [50,5,15,5,20];
 UB =  [200,100,25,15,200];
 mnames = {'\zeta_{lock} [km]';'W [km]';'V_{pl} [mm/yr]';'\delta º';'T_{plate} [km]'};
 
@@ -173,4 +174,4 @@ figure(3),clf
 histogram(potencyrate,'Normalization','probability')
 axis tight
 xlabel('potency rate [mm/yr-m]')
-set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both','XScale','log')
+set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both','XScale','lin')
