@@ -3,3 +3,4 @@ TEST_espm.asv
 /data
 *.asv
 .DS_Store
+Figures/*
