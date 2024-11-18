@@ -16,8 +16,8 @@ function [xgrid,sliprate] = func_slipratefromlockedpatch(m,nmesh,params)
 
 % construct fault parameter vector for meshing
 % [Vpl,x0,z0,W,δ,dw]
-meshsize = m(5)/nmesh;
-fparameters = [1,0,1,300e3,m(5),meshsize;...
+meshsize = 300e3/nmesh;
+fparameters = [1,0,0,300e3,m(5),meshsize;...
             -sind(m(5)),0,1,m(6)*1e3,m(5)+90,m(6)*1e3];
 Vplate = m(4); % plate velocity in [mm/yr]
 
