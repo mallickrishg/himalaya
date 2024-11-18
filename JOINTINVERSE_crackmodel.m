@@ -128,7 +128,7 @@ nmesh = 1000;
 xmesh = zeros(nmesh,Npred);
 slipratepred = zeros(nmesh,Npred);
 parfor i = 1:length(sampleid)
-    [xm,vm] = func_slipratefromlockedpatch(mposterior(sampleid(i),:),nmesh);
+    [xm,vm] = func_slipratefromlockedpatch2(mposterior(sampleid(i),:),nmesh);
     xmesh(:,i) = xm;
     slipratepred(:,i) = vm;
 end
@@ -162,7 +162,7 @@ set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
 % plot fault slip rate
 subplot(3,1,3)
 plot(xmesh./1e3,slipratepred,'-','Color',[1 0 0 0.1]), hold on
-[xm,vm] = func_slipratefromlockedpatch(mopt,nmesh);
+[xm,vm] = func_slipratefromlockedpatch2(mopt,nmesh);
 plot(xm./1e3,vm,'k-','Linewidth',2)
 xlabel('x (km)'), ylabel('sliprate [mm/yr]')
 xlim([-50,300])
