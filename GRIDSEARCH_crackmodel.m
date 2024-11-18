@@ -15,7 +15,7 @@ mu = 30e3;% in MPa
 
 % load data [x(km),vz(mm/yr),σz(mm/yr)]
 xpred = linspace(-50,300,500)'.*1e3;% predicted locations
-[ox1,d1,Cd1,flag1] = create_inputdataset('data/InSAR_vel_profile.txt','vertical');
+[ox1,d1,Cd1,flag1] = create_inputdataset('data/InSAR_vel_profile_2k.txt','vertical');
 [ox2,d2,Cd2,flag2] = create_inputdataset('data/fpp_ajish.dat','horizontal');
 
 % combine datasets and create data covariance matrix
@@ -42,23 +42,22 @@ parameters.mu = mu;
 parameters.nu = nu;
 
 % provide model initialization: ideally this is an optimization solution 
-minit = [100,10,16,10,100];
+minit = [10,100,10,16,10,100];
 
 % non-linear sampling with slice sampler
-dpred = @(m) func_velfromlockedpatch2(m,parameters);
+dpred = @(m) func_velfromlockedpatch(m,parameters);
 % residuals=@(dpred,d,W) sum(diag(W))/(sum(diag(W))^2 - sum(diag(W).^2))*(dpred-d)'*W*(dpred-d);
 residuals=@(dpred,d,W) (dpred-d)'*W*(dpred-d);
 
 % setup priors (bounds)
-
-LB =  [50,5,15,8,20];
-UB =  [200,100,25,15,200];
-mnames = {'\zeta_{down-dip}';'W';'V_{pl}';'\delta';'T_{plate}'};
+LB =  [0,80,5,15,5,20];
+UB =  [80,200,100,25,15,200];
+mnames = {'\zeta_{creep} [km]';'\zeta_{lock} [km]';'W [km]';'V_{pl} [mm/yr]';'\delta º';'T_{plate} [km]'};
 
 % compute optimization solution
 options = optimoptions('lsqnonlin','Algorithm','interior-point',...
-    'TypicalX',[5,5,0.5,1,5],'StepTolerance',1e-3,...
-    'FiniteDifferenceStepSize',[1,1,1e-6,1e-6,1],'Display','none');
+    'TypicalX',[5,5,5,0.5,1,5],'StepTolerance',1e-3,...
+    'FiniteDifferenceStepSize',[1,1,1,1e-6,1e-6,1],'Display','none');
 mopt = lsqnonlin(@(m) sqrt(W)*(dpred(m) - d),minit,LB,UB,[],[],[],[],[],options);
 disp([minit' mopt'])
 
@@ -68,102 +67,151 @@ params.ox = xpred;
 params.mu = mu;
 params.nu = nu;
 params.flag = zeros(length(xpred),1);
-vxopt = func_velfromlockedpatch2(mopt,params);
+vxopt = func_velfromlockedpatch(mopt,params);
 params.flag = ones(length(xpred),1);
-vzopt = func_velfromlockedpatch2(mopt,params);
+vzopt = func_velfromlockedpatch(mopt,params);
 
 %% execute gridsearch
 % grid up domain
-nglock = 20;
-ngw = 25;
-ngvpl = 20;
-x1vec = linspace(90,120,nglock);
-x2vec = linspace(30,100,ngw);
-x3vec = linspace(15,25,ngvpl);
+ngup = 20;
+nglock = 10;
+ngw = 20;
+ngvpl = 10;
+ngdip = 20;
+ngTe = 20;
+
+x1vec = linspace(0,50,ngup);
+x2vec = linspace(90,110,nglock);
+x3vec = linspace(30,60,ngw);
+x4vec = linspace(17,21,ngvpl);
+x5vec = linspace(5,10,ngdip);
+x6vec = linspace(30,100,ngTe);
 % N-D grid
-[x1g,x2g,x3g] = meshgrid(x1vec,x2vec,x3vec);
+[x1g,x2g,x3g,x4g,x5g,x6g] = ndgrid(x1vec,x2vec,x3vec,x4vec,x5vec,x6vec);
 
 misfit = zeros(size(x1g));
-minmisfit = zeros(ngvpl,1);
 
 % define loss function
-dpred_gridsearch = @(m) func_velfromlockedpatch2([m,mopt(4:5)],parameters);
+dpred_gridsearch = @(m) func_velfromlockedpatch(m,parameters);
 tic
-for k = 1:length(x3vec)
-    disp(['Completed ' num2str(round(k*100/length(x3vec))) ' %'])
-    for i = 1:length(x2vec)
-        parfor j = 1:length(x1vec)
-            misfit(i,j,k) = residuals(dpred_gridsearch([x1g(i,j,k),x2g(i,j,k),x3g(i,j,k)]),d,W);
-        end
-    end
-    dummy = misfit(:,:,k);
-    minmisfit(k) = min(dummy(:));
+parfor k = 1:length(x4g(:))   
+    misfit(k) = residuals(dpred_gridsearch([x1g(k),x2g(k),x3g(k),x4g(k),x5g(k),x6g(k)]),d,W);
 end
 
 toc
 %% plot relative probability of models as marginal PDFs
-
 figure(1),clf
 set(gcf,'Color','w')
-% dummy = exp(-(misfit-min(misfit(:))).*sum(diag(W)));
 dummy = exp(-(misfit-min(misfit(:))));
 
-for i = 1:3    
-    for j = 1:3
-        if (i==j)
-            subplot(3,3,(3*(i-1) + j))
-            if i==1
-                bar(x1vec,max(squeeze(max(dummy,[],1)),[],2),'FaceColor',rgb('skyblue'),'EdgeColor',rgb('skyblue'))
-                axis tight, grid on                
-                set(gca,'FontSize',15,'Color','none','XTick',[])
-            elseif (i==2)
-                bar(x2vec,max(squeeze(max(dummy,[],2)),[],2),'FaceColor',rgb('skyblue'),'EdgeColor',rgb('skyblue'))
+for i = 1:length(size(misfit))
+    for j = 1:length(size(misfit))
+        if i==j
+            subplot(6,6,(6*(i-1) + j))
+            if i == 1
+                toplot = squeeze(max(dummy,[],[6,5,4,3,2]));
+                bar(x1vec,toplot,'FaceColor',rgb('skyblue'),'EdgeColor',rgb('skyblue'))
                 axis tight, grid on
-                set(gca,'FontSize',15,'Color','none','XTick',[])
-            elseif (i==3)
-                bar(x3vec,max(squeeze(max(dummy,[],1)),[],1),'FaceColor',rgb('skyblue'),'EdgeColor',rgb('skyblue'))
+            elseif i == 2
+                toplot = squeeze(max(dummy,[],[1,3,4,5,6]));
+                bar(x2vec,toplot,'FaceColor',rgb('skyblue'),'EdgeColor',rgb('skyblue'))
                 axis tight, grid on
-                xlabel('V_{pl} [mm/yr]')
-                set(gca,'FontSize',15,'Color','none')
-            else
-                error('check number of variables to plot')
+            elseif i == 3
+                toplot = squeeze(max(dummy,[],[1,2,4,5,6]));
+                bar(x3vec,toplot,'FaceColor',rgb('skyblue'),'EdgeColor',rgb('skyblue'))
+                axis tight, grid on
+            elseif i == 4
+                toplot = squeeze(max(dummy,[],[1,2,3,5,6]));
+                bar(x4vec,toplot,'FaceColor',rgb('skyblue'),'EdgeColor',rgb('skyblue'))
+                axis tight, grid on 
+            elseif i == 5
+                toplot = squeeze(max(dummy,[],[1,2,3,4,6]));
+                bar(x5vec,toplot,'FaceColor',rgb('skyblue'),'EdgeColor',rgb('skyblue'))
+                axis tight, grid on 
+            elseif i == 6
+                toplot = squeeze(max(dummy,[],[1,2,3,4,5]));
+                bar(x6vec,toplot,'FaceColor',rgb('skyblue'),'EdgeColor',rgb('skyblue'))
+                axis tight, grid on
+                xlabel(mnames{6})
             end
-            hold on,
-            plot(mopt(i).*[1 1],get(gca,'YLim'),'k-','LineWidth',2)
+            set(gca,'FontSize',15,'Color','none')
 
         elseif i>j
-            subplot(3,3,(3*(i-1) + j))
-            if (3*(i-1) + j)==4
-                pcolor(x1vec,x2vec,squeeze(max(dummy,[],3))), shading interp
-                axis tight, box on, grid on
-                alpha 0.6
-                ylabel('W [km]')
-                set(gca,'FontSize',15,'Color','none','XTick',[])
-            elseif (3*(i-1) + j)==7
-                pcolor(x1vec,x3vec,squeeze(max(dummy,[],1))'), shading interp
-                axis tight, box on, grid on
-                alpha 0.6
-                xlabel('\zeta_{lock} [km]')
-                ylabel('V_{pl} [mm/yr]')
-                set(gca,'FontSize',15,'Color','none')
-            elseif (3*(i-1) + j)==8
-                pcolor(x2vec,x3vec,squeeze(max(dummy,[],2))'), shading interp
-                axis tight, box on, grid on
-                alpha 0.6
-                xlabel('W [km]')
-                set(gca,'FontSize',15,'Color','none','YTick',[])
+            subplot(6,6,(6*(i-1) + j))
+            if (6*(i-1) + j)==7
+                toplot = squeeze(max(dummy,[],[6,5,4,3]))';
+                pcolor(x1vec,x2vec,toplot), shading interp
+                 
+
+            elseif (6*(i-1) + j)==13
+                toplot = squeeze(max(dummy,[],[6,5,4,2]))';
+                pcolor(x1vec,x3vec,toplot), shading interp
+            elseif (6*(i-1) + j)==14
+                toplot = squeeze(max(dummy,[],[6,5,4,1]))';
+                pcolor(x2vec,x3vec,toplot), shading interp
+
+            elseif (6*(i-1) + j)==19
+                toplot = squeeze(max(dummy,[],[6,5,3,2]))';
+                pcolor(x1vec,x4vec,toplot), shading interp
+            elseif (6*(i-1) + j)==20
+                toplot = squeeze(max(dummy,[],[6,5,3,1]))';
+                pcolor(x2vec,x4vec,toplot), shading interp
+            elseif (6*(i-1) + j)==21
+                toplot = squeeze(max(dummy,[],[6,5,1,2]))';
+                pcolor(x3vec,x4vec,toplot), shading interp
+
+            elseif (6*(i-1) + j)==25
+                toplot = squeeze(max(dummy,[],[6,4,3,2]))';
+                pcolor(x1vec,x5vec,toplot), shading interp
+            elseif (6*(i-1) + j)==26
+                toplot = squeeze(max(dummy,[],[6,4,3,1]))';
+                pcolor(x2vec,x5vec,toplot), shading interp
+            elseif (6*(i-1) + j)==27
+                toplot = squeeze(max(dummy,[],[6,4,1,2]))';
+                pcolor(x3vec,x5vec,toplot), shading interp
+            elseif (6*(i-1) + j)==28
+                toplot = squeeze(max(dummy,[],[6,3,2,1]))';
+                pcolor(x4vec,x5vec,toplot), shading interp
+
+            elseif (6*(i-1) + j)==31
+                toplot = squeeze(max(dummy,[],[5,4,3,2]))';
+                pcolor(x1vec,x6vec,toplot), shading interp
+                xlabel(mnames{1})
+            elseif (6*(i-1) + j)==32
+                toplot = squeeze(max(dummy,[],[5,4,3,1]))';
+                pcolor(x2vec,x6vec,toplot), shading interp
+                xlabel(mnames{2})
+            elseif (6*(i-1) + j)==33
+                toplot = squeeze(max(dummy,[],[5,4,1,2]))';
+                pcolor(x3vec,x6vec,toplot), shading interp
+                xlabel(mnames{3})
+            elseif (6*(i-1) + j)==34
+                toplot = squeeze(max(dummy,[],[5,3,2,1]))';
+                pcolor(x4vec,x6vec,toplot), shading interp
+                xlabel(mnames{4})
+            elseif (6*(i-1) + j)==35
+                toplot = squeeze(max(dummy,[],[4,3,2,1]))';
+                pcolor(x5vec,x6vec,toplot), shading interp
+                xlabel(mnames{5})
             end
-        end        
-    end    
+            alpha 0.6
+            axis tight, box on, grid on
+            set(gca,'FontSize',15,'Color','none')
+        end
+    end
 end
 colormap(turbo(20))
-
+% return
 %% plot results
+% mopt(end) = 50;
 
-in = exp(-(misfit-min(misfit(:))))>=0.1;
+in = dummy>=0.1;
 x1plot = x1g(in);
 x2plot = x2g(in);
 x3plot = x3g(in);
+x4plot = x4g(in);
+x5plot = x5g(in);
+x6plot = x6g(in);
 vxpred = zeros(length(xpred),length(x1plot));
 vzpred = zeros(length(xpred),length(x1plot));
 
@@ -173,9 +221,9 @@ parfor i = 1:length(x1plot)
     params.flag = zeros(length(xpred),1);
     params.mu = mu;
     params.nu = nu;
-    vxpred(:,i) = func_velfromlockedpatch2([x1plot(i),x2plot(i),x3plot(i),mopt(4:5)],params);
+    vxpred(:,i) = func_velfromlockedpatch([x1plot(i),x2plot(i),x3plot(i),x4plot(i),x5plot(i),x6plot(i)],params);
     params.flag = ones(length(xpred),1);
-    vzpred(:,i) = func_velfromlockedpatch2([x1plot(i),x2plot(i),x3plot(i),mopt(4:5)],params);
+    vzpred(:,i) = func_velfromlockedpatch([x1plot(i),x2plot(i),x3plot(i),x4plot(i),x5plot(i),x6plot(i)],params);
 end
 
 % plot data predictions and fault slip rate

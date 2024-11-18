@@ -16,7 +16,7 @@ function dpred = func_velfromlockedpatch(m,params)
 
 % construct fault parameter vector for meshing
 % [Vpl,x0,z0,W,δ,dw]
-meshsize = 0.5e3;
+meshsize = 2e3;
 fparameters = [1,0,1,300e3,m(5),meshsize;...
             -sind(m(5)),0,1,m(6)*1e3,m(5)+90,m(6)*1e3];
 Vplate = m(4); % plate velocity in [mm/yr]
