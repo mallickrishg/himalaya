@@ -16,7 +16,7 @@ mu = 30e3;% in MPa
 % load data [x(km),vz(mm/yr),σz(mm/yr)]
 xpred = linspace(-50,300,500)'.*1e3;% predicted locations
 [ox1,d1,Cd1,flag1] = create_inputdataset('data/InSAR_vel_profile_2k.txt','vertical');
-[ox2,d2,Cd2,flag2] = create_inputdataset('data/fpp_ajish.dat','horizontal');
+[ox2,d2,Cd2,flag2] = create_inputdataset('data/fpp_panda.dat','horizontal');
 
 % combine datasets and create data covariance matrix
 ox = [ox1;ox2];
@@ -73,18 +73,18 @@ vzopt = func_velfromlockedpatch(mopt,params);
 
 %% execute gridsearch
 % grid up domain
-ngup = 20;
-nglock = 10;
+ngup = 10;
+nglock = 20;
 ngw = 20;
 ngvpl = 10;
-ngdip = 20;
-ngTe = 20;
+ngdip = 10;
+ngTe = 10;
 
 x1vec = linspace(0,50,ngup);
 x2vec = linspace(90,110,nglock);
-x3vec = linspace(30,60,ngw);
+x3vec = linspace(0,60,ngw);
 x4vec = linspace(17,21,ngvpl);
-x5vec = linspace(5,10,ngdip);
+x5vec = linspace(6,11,ngdip);
 x6vec = linspace(30,100,ngTe);
 % N-D grid
 [x1g,x2g,x3g,x4g,x5g,x6g] = ndgrid(x1vec,x2vec,x3vec,x4vec,x5vec,x6vec);
@@ -141,11 +141,12 @@ for i = 1:length(size(misfit))
             if (6*(i-1) + j)==7
                 toplot = squeeze(max(dummy,[],[6,5,4,3]))';
                 pcolor(x1vec,x2vec,toplot), shading interp
-                 
+                ylabel(mnames{2}) 
 
             elseif (6*(i-1) + j)==13
                 toplot = squeeze(max(dummy,[],[6,5,4,2]))';
                 pcolor(x1vec,x3vec,toplot), shading interp
+                ylabel(mnames{3})
             elseif (6*(i-1) + j)==14
                 toplot = squeeze(max(dummy,[],[6,5,4,1]))';
                 pcolor(x2vec,x3vec,toplot), shading interp
@@ -153,6 +154,7 @@ for i = 1:length(size(misfit))
             elseif (6*(i-1) + j)==19
                 toplot = squeeze(max(dummy,[],[6,5,3,2]))';
                 pcolor(x1vec,x4vec,toplot), shading interp
+                ylabel(mnames{4})
             elseif (6*(i-1) + j)==20
                 toplot = squeeze(max(dummy,[],[6,5,3,1]))';
                 pcolor(x2vec,x4vec,toplot), shading interp
@@ -163,6 +165,7 @@ for i = 1:length(size(misfit))
             elseif (6*(i-1) + j)==25
                 toplot = squeeze(max(dummy,[],[6,4,3,2]))';
                 pcolor(x1vec,x5vec,toplot), shading interp
+                ylabel(mnames{5})
             elseif (6*(i-1) + j)==26
                 toplot = squeeze(max(dummy,[],[6,4,3,1]))';
                 pcolor(x2vec,x5vec,toplot), shading interp
@@ -177,6 +180,7 @@ for i = 1:length(size(misfit))
                 toplot = squeeze(max(dummy,[],[5,4,3,2]))';
                 pcolor(x1vec,x6vec,toplot), shading interp
                 xlabel(mnames{1})
+                ylabel(mnames{6})
             elseif (6*(i-1) + j)==32
                 toplot = squeeze(max(dummy,[],[5,4,3,1]))';
                 pcolor(x2vec,x6vec,toplot), shading interp
@@ -204,8 +208,9 @@ colormap(turbo(20))
 % return
 %% plot results
 % mopt(end) = 50;
+nmesh = 300;
 
-in = dummy>=0.1;
+in = dummy>=0.5;
 x1plot = x1g(in);
 x2plot = x2g(in);
 x3plot = x3g(in);
@@ -214,6 +219,8 @@ x5plot = x5g(in);
 x6plot = x6g(in);
 vxpred = zeros(length(xpred),length(x1plot));
 vzpred = zeros(length(xpred),length(x1plot));
+slipratepred = zeros(nmesh,length(x1plot));
+xmesh = zeros(nmesh,length(x1plot));
 
 parfor i = 1:length(x1plot)
     params = [];
@@ -221,27 +228,40 @@ parfor i = 1:length(x1plot)
     params.flag = zeros(length(xpred),1);
     params.mu = mu;
     params.nu = nu;
-    vxpred(:,i) = func_velfromlockedpatch([x1plot(i),x2plot(i),x3plot(i),x4plot(i),x5plot(i),x6plot(i)],params);
+    modelparams = [x1plot(i),x2plot(i),x3plot(i),x4plot(i),x5plot(i),x6plot(i)];
+    vxpred(:,i) = func_velfromlockedpatch(modelparams,params);
     params.flag = ones(length(xpred),1);
-    vzpred(:,i) = func_velfromlockedpatch([x1plot(i),x2plot(i),x3plot(i),x4plot(i),x5plot(i),x6plot(i)],params);
+    vzpred(:,i) = func_velfromlockedpatch(modelparams,params);
+    
+    [xm,vm] = func_slipratefromlockedpatch(modelparams,nmesh,params);
+    xmesh(:,i) = xm(1:end-1);
+    slipratepred(:,i) = vm(1:end-1);
 end
 
-% plot data predictions and fault slip rate
+%% plot data predictions and fault slip rate
 figure(2),clf
 set(gcf,'Color','w')
-subplot(2,1,1)
+subplot(3,1,1)
 errorbar(ox1./1e3,d1,sqrt(diag(Cd1)),'o','LineWidth',1,'CapSize',0,'MarkerFaceColor','blue'), hold on
 plot(xpred./1e3,vzpred,'-','Color',[1 0 0 0.2])
-plot(xpred./1e3,vzopt,'k-','Linewidth',2)
+% plot(xpred./1e3,vzopt,'k-','Linewidth',2)
 axis tight
 xlabel('x (km)'), ylabel('v_z [mm/yr]')
 set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
 
-subplot(2,1,2)
+subplot(3,1,2)
 errorbar(ox2./1e3,d2,sqrt(diag(Cd2)),'o','LineWidth',1,'CapSize',0,'MarkerFaceColor','blue'), hold on
 plot(xpred./1e3,vxpred,'-','Color',[1 0 0 0.2])
-plot(xpred./1e3,vxopt,'k-','Linewidth',2)
+% plot(xpred./1e3,vxopt,'k-','Linewidth',2)
 axis tight
 xlim([-50,300])
 xlabel('x (km)'), ylabel('v_x [mm/yr]')
+set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
+
+% plot fault slip rate
+subplot(3,1,3)
+plot(xmesh./1e3,slipratepred,'-','Color',[1 0 0 0.1]), hold on
+xlabel('x (km)'), ylabel('sliprate [mm/yr]')
+xlim([-50,300])
+ylim([0 25])
 set(gca,'FontSize',15,'LineWidth',1.5,'TickDir','both')
